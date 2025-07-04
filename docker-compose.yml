@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: postgres_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: nginx_poc
+    ports:
+      - "5433:5432"       
+    restart: no
+    # ADDED: A healthcheck is necessary to prevent Keycloak from
+    # starting before the database is ready to accept connections.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:25.0
+    container_name: keycloak_server
+    environment:
+      KC_DB: postgres
+      KC_DB_URL_HOST: db
+      KC_DB_URL_DATABASE: keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: nginx_poc
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    ports:
+      # FIXED: Keycloak runs on internal port 8080. This is a critical fix.
+      - "8090:8080"
+    # UPDATED: This now waits for the healthcheck from the db service to pass.
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: no
+    command:
+      - start-dev
+  backend:
+    build: ./backend
+    ports:
+      - "3000:3000"   
+
+  nginx-gateway:
+    build: ./nginx
+    ports:
+      # Map port 8080 on your local machine to port 80 in the container
+      - "8082:80"
+    volumes:
+      - /etc/localtime:/etc/localtime:ro      
+    depends_on:
+      - backend      
+      - keycloak
+
+# FIXED: The original syntax was invalid. This is the correct way
+# to define the named volume used by the db service.
+volumes:
+  postgres_data: {}
