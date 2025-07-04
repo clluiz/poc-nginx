@@ -17,7 +17,7 @@ fi
 
 echo "Token de acesso obtido com sucesso!"
 # Para depuração, você pode descomentar a linha abaixo para ver o token
-# echo "Token: $ACCESS_TOKEN"
+echo "Token: $ACCESS_TOKEN"
 
 echo -e "\n--------------------------------------------------\n"
 
